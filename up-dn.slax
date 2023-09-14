@@ -1,0 +1,101 @@
+/*
+* ExampleUsage@deviceName# op up-down.slax <flap | desc> <y | a | n>
+* y = yes, a = all, n = no 
+* Resources: https://www.juniper.net/documentation/us/en/software/junos/automation-scripting/topics/concept/junos-script-automation-slax-overview.html
+*/
+
+version 1.0;
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+
+import "../import/junos.xsl";
+
+/*Default flag values*/
+param $flap = "y";
+param $desc = "y";
+param $time = "86400";
+
+var $physical-interface = jcs:invoke( "get-interface-information" );	
+var $arguments = {
+	<argument> {
+		<name> "flap";
+		<description> "Flag to show all interface flaps or remove flap output; 'flap <y | a | n>'";
+	}
+	<argument> {
+		<name> "desc";
+		<description> "Flag to remove logical unit descriptions or include them for all interfaces; 'desc <y | a | n>'";	
+	}
+}		
+match / {
+	<op-script-results> {
+		/*flap*/
+		if ($flap == "y") {
+			<output> "--------------------------------------------------";
+			<output> jcs:printf( "%-14s%-8s%-8s%-8s", "Interface", "Admin", "Oper", "Last Flapped");
+			for-each($physical-interface/information) {
+				var $int-name = name;
+				var $int-admin = admin-status;
+				var $int-oper = oper-status;
+				var $int-up = interface-flapped;		
+				if  ((starts-with(name, "ge-") || starts-with(name, "xe-") || starts-with(name, "ae")) && ($int-up/@junos:seconds < $time)) {
+					<output> jcs:printf( "%-14s%-8s%-8s%-8s", $int-name, $int-admin, $int-oper, $int-up );	
+				}		
+			} 
+		}
+		else if ($flap == "a") {
+			<output> "--------------------------------------------------";
+			<output> jcs:printf( "%-14s%-8s%-8s%-8s", "Interface", "Admin", "Oper", "Last Flapped");
+			for-each($physical-interface/information) {
+				var $int-name = name;
+				var $int-admin = admin-status;
+				var $int-oper = oper-status;
+				var $int-up = interface-flapped;			
+				if (starts-with(name, "ge-") || starts-with(name, "xe-") || starts-with(name, "ae")) {
+					<output> jcs:printf( "%-14s%-8s%-8s%-8s", $int-name, $int-admin, $int-oper, $int-up );	
+				}		
+			}
+		}
+		else if ($flap == "n") {
+		}
+		/*desc*/
+		if ($desc == "y") {
+			<output> "\n";
+			<output> "--------------------------------------------------";
+			<output> jcs:printf( "%-16s%-16s", "Interface", "Description" );
+			for-each($physical-interface/information) {
+				var $sub-int-name = name;
+				var $sub-int-up = interface-flapped;
+				if ((starts-with(name, "ge-") || starts-with(name, "xe-") || starts-with(name, "ae")) && ($sub-int-up/@junos:seconds < $time)) {
+					for-each(logical-interface) {
+						var $sub-logical-name = name;
+						var $sub-logical-desc = description;
+						if (starts-with(description, "CUST:") || starts-with(description, "CARR:") || starts-with(description, "INT:") || starts-with(description, "UNI:")) {
+							<output> jcs:printf( "%-16s%-16s", $sub-logical-name, $sub-logical-desc );
+						}
+					}		
+				} 
+			}
+		}
+		else if ($desc == "a") {
+			<output> "\n";
+			<output> "--------------------------------------------------";
+			<output> jcs:printf( "%-16s%-16s", "Interface", "Description" );
+			for-each($physical-interface/information) {
+			var $sub-int-name = name;
+			var $sub-int-up = interface-flapped;
+				if (starts-with(name, "ge-") || starts-with(name, "xe-") || starts-with(name, "ae")) {
+					for-each(logical-interface) {
+						var $sub-logical-name = name;
+						var $sub-logical-desc = description;
+						if (starts-with(description, "CUST:") || starts-with(description, "CARR:") || starts-with(description, "INT:") || starts-with(description, "UNI:")) {
+							<output> jcs:printf( "%-16s%-16s", $sub-logical-name, $sub-logical-desc );
+						}
+					}		
+				} 
+			}
+		}
+		else if ($desc == "n") {	
+		}
+	}
+}
